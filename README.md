@@ -203,7 +203,11 @@ Frontend (Next.js)
 /module/:id : affichage du cours + quiz + chatbot intégré
 
 /summary : affichage du certificat et des points clés
+ 
+📚 Documentation technique
 
+- Backend: [Context/backend.md](Context/backend.md)
+- Frontend: [Context/frontend.md](Context/frontend.md)
+- Règles IA: [Context/ai-rules.md](Context/ai-rules.md)
 
-
-## V2 chat bot preso module avec rag du cours et persone 
+## V2 chat bot preso module avec rag du cours et persone
