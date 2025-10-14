@@ -23,23 +23,32 @@
 
 ### Phase 1: Fondation Backend
 
-- [ ] Initialiser NestJS avec `@nestjs/config` et `PrismaService`
-- [ ] Définir le schéma Prisma (User, Course, Module, Lesson, Quiz, BestPractices)
-- [ ] Lancer les migrations initiales et un seed minimal de démo
-- [ ] Implémenter DTOs et `POST /profile` avec validation (`class-validator`)
-- [ ] Implémenter `ProfileController` et `ProfileService`
-- [ ] Ajouter utilitaire JSON `ensureJsonResponse` et filtres/intercepteurs d’erreurs
-- [ ] Implémenter `GET /course/:id` (agrégat: modules, leçons, quiz, best_practices)
-- [ ] Implémenter `GET /module/:id` (détail: leçons, quiz, `chatbot_context`)
-- [ ] Activer logging (durée/modèle/tokens), rate limiting, endpoint santé
+- [x] Initialiser NestJS avec `@nestjs/config` et `PrismaService`
+- [x] Définir le schéma Prisma (User, Course, Module, Lesson, Quiz, BestPractices)
+- [x] Lancer les migrations initiales et un seed minimal de démo
+  - État: Base locale démarrée via `npx prisma dev` (Prisma Postgres).
+  - `DATABASE_URL` chargé depuis `.env` au format `prisma+postgres://...`.
+  - Migration appliquée: `20251014203509_init`.
+  - Seed inséré: 1 `User`, 1 `Course` avec 2 `Module`s, leçons, quiz et `BestPractices`.
+- [x] Implémenter DTOs et `POST /profile` avec validation (`class-validator`)
+- [x] Implémenter `ProfileController` et `ProfileService`
+- [x] Ajouter utilitaire JSON `ensureJsonResponse` et filtres/intercepteurs d’erreurs
+- [x] Implémenter `GET /course/:id` (agrégat: modules, leçons, quiz, best_practices)
+- [x] Implémenter `GET /module/:id` (détail: leçons, quiz, `chatbot_context`)
+- [x] Activer logging (durée/modèle/tokens), rate limiting, endpoint santé
+
+ Notes (Phase 1):
+ - Serveur Nest démarré localement sur `http://localhost:3000`.
+ - Prisma Client généré avec `npx prisma generate` (import via `@prisma/client`).
+ - Base de développement locale active via `prisma dev`; `.env` contient un `DATABASE_URL` au format `prisma+postgres://...`.
 
 ### Phase 2: Orchestration IA
 
-- [ ] Implémenter `LlmService` (OpenAI par défaut) avec réponses strictement JSON
-- [ ] Implémenter `AiOrchestratorService` (séquence IA #1 → IA #2 → IA #3 → IA #4)
-- [ ] Implémenter endpoints IA: `/ai/tools-practices`, `/ai/generate-course`, `/ai/generate-module`, `/ai/generate-summary`
-- [ ] Persister les retours IA (tools/practices, course/modules, lessons/quiz, summary)
-- [ ] Gérer retries, timeouts, nettoyage JSON (fallback parse)
+- [x] Implémenter `LlmService` (OpenAI par défaut) avec réponses strictement JSON
+- [x] Implémenter `AiOrchestratorService` (séquence IA #1 → IA #2 → IA #3 → IA #4)
+- [x] Implémenter endpoints IA: `/ai/tools-practices`, `/ai/generate-course`, `/ai/generate-module`, `/ai/generate-summary`
+- [x] Persister les retours IA (tools/practices, course/modules, lessons/quiz, summary)
+ - [x] Gérer retries, timeouts, nettoyage JSON (fallback parse)
 
 ### Phase 3: Frontend MVP
 
