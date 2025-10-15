@@ -1,0 +1,12 @@
+node_modules
+.next
+npm-debug.log*
+.env*
+.DS_Store
+coverage
+tmp
+.git
+.gitignore
+README.md
+public/**/*.psd
+public/**/*.ai

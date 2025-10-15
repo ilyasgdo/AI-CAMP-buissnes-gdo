@@ -1,0 +1,75 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: gdo_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: gdo_db
+    ports:
+      - "5434:5432" # port hôte libre (si 5433 déjà occupé)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: gdo_backend
+    restart: unless-stopped
+    environment:
+      # Port de Nest
+      PORT: "3000"
+      NODE_ENV: development
+      # Base de données: adresse du service postgres dans le réseau Docker
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/gdo_db
+      # LLM: on utilise Ollama sur la machine hôte (Docker Desktop Windows)
+      LLM_MODE: provider
+      LLM_PROVIDER: ollama
+      # IMPORTANT: le code lit OLLAMA_BASE_URL (pas OLLAMA_API_URL)
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      LLM_MODEL: qwen2.5-coder:0.5b
+      LLM_TIMEOUT_MS: "1000000000"
+      LLM_MAX_RETRIES: "2"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./backend:/app
+      - backend_node_modules:/app/node_modules
+    command: sh -c "npx prisma generate && npx prisma migrate deploy && npm run start:dev"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: gdo_frontend
+    restart: unless-stopped
+    environment:
+      # Côté navigateur: utilise localhost:3000 (port publié du backend)
+      NEXT_PUBLIC_API_URL: http://localhost:3000
+      # Côté serveur (SSR): résout le service Docker backend
+      SERVER_API_URL: http://backend:3000
+    depends_on:
+      - backend
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    command: sh -c "npm run dev -- -p 3001"
+
+volumes:
+  pgdata:
+  backend_node_modules:
+  frontend_node_modules:
