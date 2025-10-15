@@ -1,5 +1,0 @@
-
- try {
-   Write-Host 'Fetch Course:';
-  Invoke-RestMethod -Uri "$base/course/2c0e813e-450c-420f-8cc5-a887ed685b68" -Method Get | ConvertTo-Json -Depth 8;
- } catch { Write-Host $_.Exception.Message; Write-Host $_.ErrorDetails.Message }
