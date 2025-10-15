@@ -1,0 +1,12 @@
+services:
+  # Override du backend pour pointer sur Ollama installé localement (hors Docker)
+  backend:
+    environment:
+      LLM_MODE: provider
+      LLM_PROVIDER: ollama
+      # Depuis le conteneur backend, atteindre le serveur Ollama local via host.docker.internal
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      LLM_MODEL: mistral:latest 
+    # Assure la résolution de host.docker.internal si nécessaire
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

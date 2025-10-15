@@ -1,0 +1,50 @@
+services:
+  # Service vLLM (OpenAI-compatible) avec GPU pour Qwen2.5-Coder 0.5B Instruct
+  vllm:
+    image: vllm/vllm-openai:latest
+    container_name: gdo_vllm
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      # Active toutes les GPU visibles pour le conteneur
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      HF_HOME: /root/.cache/huggingface
+    volumes:
+      - vllm_models:/root/.cache/huggingface
+    command: >-
+      --model Qwen/Qwen2.5-Coder-0.5B-Instruct
+      --gpu-memory-utilization 0.90
+      --tensor-parallel-size 1
+      --dtype auto
+      --trust-remote-code
+      --download-dir /root/.cache/huggingface
+      --max-model-len 8192
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:8000/v1/models || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  # Override du backend pour pointer sur vLLM (OpenAI-compatible)
+  backend:
+    environment:
+      LLM_MODE: provider
+      LLM_PROVIDER: openai
+      OPENAI_API_KEY: sk-noauth
+      OPENAI_BASE_URL: http://vllm:8000/v1
+      LLM_MODEL: Qwen/Qwen2.5-Coder-0.5B-Instruct
+    depends_on:
+      vllm:
+        condition: service_healthy
+
+volumes:
+  vllm_models:

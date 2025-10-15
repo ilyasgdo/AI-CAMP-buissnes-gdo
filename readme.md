@@ -233,3 +233,89 @@ Notes:
 - Backend: [backend.md](./backend.md)
 - Frontend: [frontend.md](./frontend.md)
 - Règles IA: [ai-rules.md](./ai-rules.md)
+
+---
+
+## Guide Docker Compose — Démarrer, choisir provider, arrêter, redémarrer
+
+Prérequis
+- Docker Desktop actif et récent.
+- Ports libres: `5434` (Postgres), `3000` (Backend), `3001` (Frontend), `11434` (Ollama hors Docker), `8000` (vLLM si utilisé).
+- Pour vLLM: GPU NVIDIA + driver + runtime compatible (voir image `vllm/vllm-openai`).
+- Pour Gemini (Vertex AI): crédentials service account à `./secrets/google-sa.json` et variables projet (voir ci‑dessous).
+
+Démarrer la stack de base (mock LLM)
+- Lance `postgres`, `backend`, `frontend` avec le mode LLM mock (par défaut):
+  - `docker compose up -d`
+- Vérifier santé backend: 
+  - Windows PowerShell: `Invoke-WebRequest -UseBasicParsing http://localhost:3000/health | Select-Object StatusCode, Content`
+
+Choisir un provider LLM
+- Général: combinez le fichier de base avec l’override du provider:
+  - `docker compose -f docker-compose.yml -f docker-compose.<provider>.yml up -d`
+- Ollama (serveur local sur l’hôte):
+  - Prérequis: Ollama installé et démarré sur l’hôte (`http://localhost:11434`). Vérifiez: `ollama list` et pull du modèle (ex: `ollama pull mistral:latest`).
+  - Démarrer backend avec override Ollama:
+    - Backend seul: `docker compose -f docker-compose.yml -f docker-compose.ollama.yml up -d backend`
+    - Stack complète: `docker compose -f docker-compose.yml -f docker-compose.ollama.yml up -d`
+  - Changer de modèle: éditez `LLM_MODEL` dans `docker-compose.ollama.yml` (ex: `mistral:latest` ou `qwen2.5-coder:0.5b`).
+  - Vérifier modèles disponibles depuis backend: 
+    - `docker compose -f docker-compose.yml -f docker-compose.ollama.yml exec backend sh -lc "wget -qO- http://host.docker.internal:11434/api/tags"`
+- Perplexity:
+  - Variables: `PERPLEXITY_API_KEY` (doit être exportée dans l’environnement).
+  - Démarrer: `docker compose -f docker-compose.yml -f docker-compose.perplexity.yml up -d backend`
+  - Modèle par défaut: `pplx-70b-online` (web access).
+- Gemini (Vertex AI):
+  - Variables: `GOOGLE_PROJECT_ID`, `GOOGLE_LOCATION` (par défaut `us-central1`).
+  - Crédentials: placez `./secrets/google-sa.json` (service account) monté dans le conteneur.
+  - Démarrer: `docker compose -f docker-compose.yml -f docker-compose.gemini.yml up -d backend`
+  - Modèle par défaut: `gemini-2.5-flash`.
+- vLLM (OpenAI-compatible, en conteneur):
+  - Démarrer vLLM + backend: `docker compose -f docker-compose.yml -f docker-compose.vllm.yml up -d vllm backend`
+  - Base URL côté backend: `OPENAI_BASE_URL: http://vllm:8000/v1` (déjà défini dans l’override).
+
+Exposer via Cloudflare (domaine public)
+- Combinez l’override Cloudflare avec la stack existante pour exposer `frontend` et `backend` via tunnel:
+  - Exemple Ollama + Cloudflare: `docker compose -f docker-compose.yml -f docker-compose.ollama.yml -f docker-compose.cloudflare.yml up -d`
+- Le tunnel utilise `cloudflared/config.yml`:
+  - `ilyasghandaoui.store` → `frontend:3001`
+  - `api.ilyasghandaoui.store` et `api2.ilyasghandaoui.store` → `backend:3000`
+- L’override Cloudflare ajuste `NEXT_PUBLIC_API_URL` du frontend vers `https://api2.ilyasghandaoui.store`.
+
+Vérifications utiles
+- Local: `Invoke-WebRequest -UseBasicParsing http://localhost:3000/health`
+- Inter-conteneurs: `docker compose exec frontend wget -qO- http://backend:3000/health`
+- Cloudflare: `Invoke-WebRequest -UseBasicParsing https://api2.ilyasghandaoui.store/health`
+- Endpoint IA (ex.):
+  - PowerShell: 
+    - `$body = @{ user_id = '<UUID_USER>' } | ConvertTo-Json`
+    - `Invoke-WebRequest -UseBasicParsing -Uri 'http://localhost:3000/ai/tools-practices' -Method POST -Body $body -ContentType 'application/json'`
+
+Arrêter et nettoyer
+- Arrêter la stack courante (incluant overrides) et supprimer orphelins:
+  - `docker compose -f docker-compose.yml -f docker-compose.<provider>.yml -f docker-compose.cloudflare.yml down --remove-orphans`
+- Astuce: si vous ne vous souvenez plus des overrides utilisés, `docker compose down --remove-orphans` suffit dans la plupart des cas (même projet Compose).
+
+Redémarrer / Recréer / Rebuilder
+- Redémarrer un service (recréation forcée):
+  - `docker compose -f docker-compose.yml -f docker-compose.<provider>.yml up -d --force-recreate backend`
+- Rebuilder l’image backend (par ex. après changement code/dépendances):
+  - `docker compose -f docker-compose.yml -f docker-compose.<provider>.yml build --no-cache backend`
+  - `docker compose -f docker-compose.yml -f docker-compose.<provider>.yml up -d backend`
+- Logs et debug:
+  - Backend: `docker compose logs -f backend`
+  - Cloudflared: `docker compose logs -f cloudflared`
+
+Changer de provider (ex. Ollama → Gemini)
+- Nettoyage:
+  - `docker compose -f docker-compose.yml -f docker-compose.ollama.yml down --remove-orphans`
+- Démarrage avec nouveau provider:
+  - `docker compose -f docker-compose.yml -f docker-compose.gemini.yml up -d backend`
+- Option Cloudflare:
+  - `docker compose -f docker-compose.yml -f docker-compose.gemini.yml -f docker-compose.cloudflare.yml up -d`
+
+Notes & bonnes pratiques
+- Évitez de monter le code hôte du backend (`./backend:/app`) pour ne pas casser les `node_modules` du conteneur.
+- `host.docker.internal` est déjà déclaré dans l’override Ollama pour accéder à `http://localhost:11434` depuis le conteneur backend.
+- Avertissements “orphan containers” → utilisez `--remove-orphans` lors de `down` pour nettoyer les anciens services non référencés.
+- Pour changer rapidement de modèle Ollama, éditez `LLM_MODEL` dans `docker-compose.ollama.yml` puis `up -d --force-recreate backend`.

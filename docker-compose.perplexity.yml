@@ -1,0 +1,9 @@
+services:
+  # Override du backend pour utiliser Perplexity (OpenAI-compatible SDK avec baseURL perplexity)
+  backend:
+    environment:
+      LLM_MODE: provider
+      LLM_PROVIDER: perplexity
+      PERPLEXITY_API_KEY: ${PERPLEXITY_API_KEY}
+      # Modèle par défaut du code: pplx-70b-online (accès web)
+      LLM_MODEL: pplx-70b-online

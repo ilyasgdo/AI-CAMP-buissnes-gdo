@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Installer les dépendances
 COPY package*.json ./
-RUN npm ci
+RUN npm install --no-audit --no-fund
 
 # Prisma client
 COPY prisma ./prisma

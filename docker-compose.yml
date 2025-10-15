@@ -1,4 +1,4 @@
-version: "3.9"
+## Compose file version key is obsolete in modern Docker Compose; removed.
 
 services:
   postgres:
@@ -31,12 +31,8 @@ services:
       NODE_ENV: development
       # Base de données: adresse du service postgres dans le réseau Docker
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/gdo_db
-      # LLM: on utilise Ollama sur la machine hôte (Docker Desktop Windows)
-      LLM_MODE: provider
-      LLM_PROVIDER: ollama
-      # IMPORTANT: le code lit OLLAMA_BASE_URL (pas OLLAMA_API_URL)
-      OLLAMA_BASE_URL: http://host.docker.internal:11434
-      LLM_MODEL: qwen2.5-coder:0.5b
+      # LLM: par défaut, le backend reste en mode mock (aucun provider).
+      # Les overrides (docker-compose.ollama.yml / docker-compose.vllm.yml) définiront le provider et les variables utiles.
       LLM_TIMEOUT_MS: "1000000000"
       LLM_MAX_RETRIES: "2"
     depends_on:
@@ -44,10 +40,7 @@ services:
         condition: service_healthy
     ports:
       - "3000:3000"
-    volumes:
-      - ./backend:/app
-      - backend_node_modules:/app/node_modules
-    command: sh -c "npx prisma generate && npx prisma migrate deploy && npm run start:dev"
+    command: sh -c "npx prisma generate && npx prisma migrate deploy && npm run start"
 
   frontend:
     build:

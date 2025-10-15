@@ -16,11 +16,14 @@ async function bootstrap() {
       'http://127.0.0.1:3002',
       'http://localhost:3003',
       'http://127.0.0.1:3003',
+      'https://ilyasghandaoui.store',
+      'https://api.ilyasghandaoui.store',
+      'https://api2.ilyasghandaoui.store',
     ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: false,
   });
-  await app.listen(process.env.PORT ?? 3000);
+  await app.listen(Number(process.env.PORT ?? 3000), '0.0.0.0');
 }
 bootstrap();

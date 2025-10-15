@@ -1,0 +1,27 @@
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: gdo_cloudflared
+    restart: unless-stopped
+    depends_on:
+      - frontend
+      - backend
+    command: tunnel --config /etc/cloudflared/config.yml run
+    environment:
+      TUNNEL_ORIGIN_CERT: /etc/cloudflared/cert.pem
+    volumes:
+      - ./cloudflared/config.yml:/etc/cloudflared/config.yml:ro
+      - ./secrets/cloudflared-credentials.json/ca7ea54d-0097-467f-a92c-d221bd5e46da.json:/etc/cloudflared/credentials.json:ro
+      - ./secrets/cloudflared-credentials.json/cert.pem:/etc/cloudflared/cert.pem:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # Override pour exposer l’API publique côté navigateur via le domaine Cloudflare
+  frontend:
+    environment:
+      NEXT_PUBLIC_API_URL: https://api2.ilyasghandaoui.store
+
+  backend:
+    depends_on:
+      postgres:
+        condition: service_healthy

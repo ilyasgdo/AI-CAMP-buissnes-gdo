@@ -26,7 +26,12 @@ export class LlmService {
     if (!provider) return true;
     if (provider === 'openai') return !this.config.get('OPENAI_API_KEY');
     if (provider === 'perplexity') return !this.config.get('PERPLEXITY_API_KEY');
-    if (provider === 'google') return !this.config.get('GOOGLE_API_KEY');
+    if (provider === 'google') {
+      const apiKey = this.config.get('GOOGLE_API_KEY');
+      const model = (this.config.get('LLM_MODEL') ?? '').toString();
+      const useVertex = String(this.config.get('GOOGLE_VERTEX') ?? '').toLowerCase() === 'true' || /gemini-2\.5/i.test(model);
+      return !apiKey && !useVertex;
+    }
     // Ollama par défaut sur localhost, pas d’API key
     if (provider === 'ollama') return false;
     return true;
@@ -38,7 +43,8 @@ export class LlmService {
     const apiKey = this.config.get('OPENAI_API_KEY');
     const model = (this.config.get('LLM_MODEL') ?? 'gpt-4o-mini').toString();
     if (!apiKey) return null;
-    return new OpenAiProvider(apiKey, model);
+    const baseUrl = (this.config.get('OPENAI_BASE_URL') ?? '').toString() || undefined;
+    return new OpenAiProvider(apiKey, model, baseUrl);
   }
 
   private get perplexity(): PerplexityProvider | null {
@@ -63,7 +69,8 @@ export class LlmService {
     if (provider !== 'google') return null;
     const apiKey = this.config.get('GOOGLE_API_KEY');
     const model = (this.config.get('LLM_MODEL') ?? 'gemini-1.5-flash').toString();
-    if (!apiKey) return null;
+    const useVertex = String(this.config.get('GOOGLE_VERTEX') ?? '').toLowerCase() === 'true' || /gemini-2\.5/i.test(model);
+    if (!apiKey && !useVertex) return null;
     return new GoogleProvider(apiKey, model);
   }
 

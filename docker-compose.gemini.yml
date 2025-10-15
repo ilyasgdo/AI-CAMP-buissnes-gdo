@@ -1,0 +1,17 @@
+services:
+  # Override du backend pour utiliser Google Gemini via API key
+  backend:
+    environment:
+      LLM_MODE: provider
+      LLM_PROVIDER: google
+      # Utiliser Gemini 2.5 via Vertex AI (OAuth service account)
+      LLM_MODEL: gemini-2.5-flash
+      GOOGLE_VERTEX: "true"
+      # Renseignez votre projet et région Vertex AI
+      GOOGLE_PROJECT_ID: ${GOOGLE_PROJECT_ID}
+      GOOGLE_LOCATION: ${GOOGLE_LOCATION:-us-central1}
+      # Chemin des credentials (service account JSON) monté dans le conteneur
+      GOOGLE_APPLICATION_CREDENTIALS: /app/creds/google-sa.json
+    volumes:
+      # Montez le fichier JSON de service account à l’endroit attendu
+      - ./secrets/google-sa.json:/app/creds/google-sa.json:ro

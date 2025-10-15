@@ -3,8 +3,8 @@ import OpenAI from 'openai';
 export class OpenAiProvider {
   private client: OpenAI;
 
-  constructor(private readonly apiKey: string, private readonly model: string) {
-    this.client = new OpenAI({ apiKey });
+  constructor(private readonly apiKey: string, private readonly model: string, private readonly baseUrl?: string) {
+    this.client = new OpenAI({ apiKey, ...(this.baseUrl ? { baseURL: this.baseUrl } : {}) });
   }
 
   async completeJson(system: string, user: string): Promise<string> {

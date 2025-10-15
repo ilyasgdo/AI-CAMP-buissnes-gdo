@@ -1,0 +1,11 @@
+tunnel: ca7ea54d-0097-467f-a92c-d221bd5e46da
+credentials-file: /etc/cloudflared/credentials.json
+
+ingress:
+  - hostname: ilyasghandaoui.store
+    service: http://frontend:3001
+  - hostname: api.ilyasghandaoui.store
+    service: http://backend:3000
+  - hostname: api2.ilyasghandaoui.store
+    service: http://backend:3000
+  - service: http_status:404
