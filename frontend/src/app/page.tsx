@@ -21,7 +21,7 @@ export default function Home() {
     try {
       localStorage.removeItem("user_id");
       localStorage.removeItem("course_id");
-      document.cookie = "user_id=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      fetch("/api/session/clear", { method: "POST" }).catch(() => {});
     } catch (_) {}
     window.location.href = "/";
   };

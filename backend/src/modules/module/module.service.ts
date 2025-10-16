@@ -1,19 +1,21 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class ModuleService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getDetail(id: string) {
+  async getDetail(id: string, userId: string) {
     const mod = await this.prisma.module.findUnique({
       where: { id },
       include: {
         lessons: { orderBy: { orderIndex: 'asc' } },
         quizzes: { orderBy: { orderIndex: 'asc' } },
+        course: true,
       },
     });
     if (!mod) throw new NotFoundException('Module not found');
+    if (mod.course?.userId !== userId) throw new ForbiddenException('Access denied');
 
     return {
       module_id: mod.id,

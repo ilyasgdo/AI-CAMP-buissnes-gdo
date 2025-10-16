@@ -1,6 +1,7 @@
 import { Body, ConflictException, Controller, NotFoundException, Post } from '@nestjs/common';
 import { IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
 import { AuthService } from './auth.service';
+import { signToken } from '../../common/jwt';
 
 class RegisterDto {
   @IsEmail()
@@ -36,7 +37,8 @@ export class AuthController {
     const exists = await this.service.findByEmail(dto.email);
     if (exists) throw new ConflictException('Email déjà utilisé');
     const user = await this.service.register(dto);
-    return { user_id: user.id };
+    const token = signToken({ sub: user.id, email: user.email ?? undefined });
+    return { user_id: user.id, token };
   }
 
   @Post('login')
@@ -45,6 +47,7 @@ export class AuthController {
     if (!user) throw new NotFoundException('Utilisateur introuvable');
     const ok = await this.service.verifyPassword(user, dto.password);
     if (!ok) throw new ConflictException('Identifiants invalides');
-    return { user_id: user.id };
+    const token = signToken({ sub: user.id, email: user.email ?? undefined });
+    return { user_id: user.id, token };
   }
 }

@@ -7,6 +7,7 @@ import { PrismaClient } from '@prisma/client';
 describe('Course & Module (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaClient;
+  let token: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -18,6 +19,15 @@ describe('Course & Module (e2e)', () => {
 
     prisma = new PrismaClient();
     await prisma.$connect();
+
+    // Register a user and authenticate
+    const email = `test${Date.now()}@example.com`;
+    const registerRes = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({ email, password: 'password123' });
+    expect(registerRes.status).toBe(201);
+    token = registerRes.body.token;
+    expect(typeof token).toBe('string');
   });
 
   afterAll(async () => {
@@ -32,13 +42,32 @@ describe('Course & Module (e2e)', () => {
   });
 
   it('/course/:id (GET) aggregate should match latest course', async () => {
-    const course = await prisma.course.findFirst({ orderBy: { createdAt: 'desc' } });
-    expect(course).toBeTruthy();
-    if (!course) return;
+    // Create course for the authenticated user via pipeline
+    const profilePayload = {
+      job: 'QA Engineer',
+      sector: 'Tech',
+      ai_level: 'intermediate',
+      tools_used: ['ChatGPT'],
+      work_style: 'remote',
+    };
+    const profileRes = await request(app.getHttpServer())
+      .post('/profile')
+      .set('Authorization', `Bearer ${token}`)
+      .send(profilePayload);
+    expect(profileRes.status).toBe(201);
 
-    const res = await request(app.getHttpServer()).get(`/course/${course.id}`);
+    const pipeRes = await request(app.getHttpServer())
+      .post('/ai/run-pipeline')
+      .set('Authorization', `Bearer ${token}`)
+      .send({});
+    expect(pipeRes.status).toBe(201);
+    const courseId = pipeRes.body.course_id as string;
+
+    const res = await request(app.getHttpServer())
+      .get(`/course/${courseId}`)
+      .set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
-    expect(res.body).toHaveProperty('id', course.id);
+    expect(res.body).toHaveProperty('id', courseId);
     expect(typeof res.body.title).toBe('string');
     expect(res.body).toHaveProperty('rawAiTools');
     expect(res.body).toHaveProperty('rawBestPractices');
@@ -48,15 +77,21 @@ describe('Course & Module (e2e)', () => {
   });
 
   it('/module/:id (GET) should return details for each module', async () => {
-    const course = await prisma.course.findFirst({ orderBy: { createdAt: 'desc' } });
-    expect(course).toBeTruthy();
-    if (!course) return;
+    // Ensure there is a course for the authenticated user
+    const pipeRes = await request(app.getHttpServer())
+      .post('/ai/run-pipeline')
+      .set('Authorization', `Bearer ${token}`)
+      .send({});
+    expect(pipeRes.status).toBe(201);
+    const courseId = pipeRes.body.course_id as string;
 
-    const modules = await prisma.module.findMany({ where: { courseId: course.id }, orderBy: { orderIndex: 'asc' } });
+    const modules = await prisma.module.findMany({ where: { courseId }, orderBy: { orderIndex: 'asc' } });
     expect(modules.length).toBeGreaterThan(0);
 
     for (const m of modules) {
-      const res = await request(app.getHttpServer()).get(`/module/${m.id}`);
+      const res = await request(app.getHttpServer())
+        .get(`/module/${m.id}`)
+        .set('Authorization', `Bearer ${token}`);
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty('module_id', m.id);
       expect(res.body).toHaveProperty('title');

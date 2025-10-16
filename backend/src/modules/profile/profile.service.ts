@@ -5,7 +5,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class ProfileService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: any) {
+  async create(dto: any, userId?: string) {
     // tools_used peut être un tableau (liste) ou un objet (avec extras)
     const tools = Array.isArray(dto.tools_used)
       ? dto.tools_used
@@ -13,13 +13,15 @@ export class ProfileService {
       ? dto.tools_used
       : [];
 
-    if (dto.user_id) {
-      const existing = await this.prisma.user.findUnique({ where: { id: dto.user_id } });
+    const targetUserId = userId ?? dto.user_id;
+
+    if (targetUserId) {
+      const existing = await this.prisma.user.findUnique({ where: { id: targetUserId } });
       if (!existing) {
         throw new NotFoundException('User not found');
       }
       const updated = await this.prisma.user.update({
-        where: { id: dto.user_id },
+        where: { id: targetUserId },
         data: {
           job: dto.job,
           sector: dto.sector,

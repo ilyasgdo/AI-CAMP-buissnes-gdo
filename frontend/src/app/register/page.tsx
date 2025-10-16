@@ -24,11 +24,18 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       const res = await Api.register(email, password);
-      const userId = res.user_id;
+      const userId = (res as any).user_id as string;
+      const token = (res as any).token as string | undefined;
       localStorage.setItem("user_id", userId);
       // Stocker l'email pour affichage sur le Dashboard
       try { localStorage.setItem("user_email", email); } catch (_) {}
-      document.cookie = `user_id=${userId}; path=/;`;
+      if (token) {
+        await fetch("/api/session/set", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token }),
+        });
+      }
       toast.success("Compte créé ! Complétez votre profil.");
       router.push("/profile");
     } catch (err: any) {

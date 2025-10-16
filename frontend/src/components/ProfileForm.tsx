@@ -75,15 +75,13 @@ export function ProfileForm() {
     };
     try {
       const res = await Api.postProfile(payload);
-      // Persistance côté client
+      // Persistance côté client (facultative)
       localStorage.setItem("user_id", res.user_id);
-      // Cookie pour le middleware
-      document.cookie = `user_id=${res.user_id}; Path=/; Max-Age=31536000; SameSite=Lax`;
 
       toast.success("Profil enregistré. Génération du parcours en cours...");
 
       try {
-        const pipeline = await Api.runPipeline(res.user_id);
+        const pipeline = await Api.runPipeline();
         if (pipeline?.course_id) {
           localStorage.setItem("course_id", pipeline.course_id);
           toast.success("Modules personnalisés créés !");

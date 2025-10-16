@@ -14,6 +14,25 @@ const BASE_URL = isServer
   ? (process.env.SERVER_API_URL ?? "http://backend:3000")
   : (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000");
 
+function authHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (isServer) {
+    try {
+      // Lazy require to avoid bundling server-only module in client
+      const { cookies } = require("next/headers");
+      const token = cookies().get("session_token")?.value;
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+    } catch (_) {}
+  } else {
+    try {
+      // Côté client: récupérer le token stocké au login
+      const token = window.localStorage.getItem("session_token") || window.localStorage.getItem("auth_token");
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+    } catch (_) {}
+  }
+  return headers;
+}
+
 async function toJson<T>(res: Response): Promise<T> {
   if (!res.ok) {
     let message = `HTTP ${res.status}`;
@@ -35,7 +54,8 @@ export const Api = {
   async register(email: string, password: string, extras?: { job?: string; sector?: string; ai_level?: string; tools_used?: any; work_style?: string }): Promise<ProfileResponse> {
     const res = await fetch(`${BASE_URL}/auth/register`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      credentials: "include",
       body: JSON.stringify({ email, password, ...(extras ?? {}) }),
     });
     return toJson<ProfileResponse>(res);
@@ -44,7 +64,8 @@ export const Api = {
   async login(email: string, password: string): Promise<ProfileResponse> {
     const res = await fetch(`${BASE_URL}/auth/login`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      credentials: "include",
       body: JSON.stringify({ email, password }),
     });
     return toJson<ProfileResponse>(res);
@@ -52,53 +73,56 @@ export const Api = {
   async postProfile(data: ProfileInput): Promise<ProfileResponse> {
     const res = await fetch(`${BASE_URL}/profile`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      credentials: "include",
       body: JSON.stringify(data),
     });
     return toJson<ProfileResponse>(res);
   },
 
-  async toolsPractices(user_id: string): Promise<ToolsPractices> {
+  async toolsPractices(): Promise<ToolsPractices> {
     const res = await fetch(`${BASE_URL}/ai/tools-practices`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id }),
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      credentials: "include",
+      body: JSON.stringify({}),
     });
     return toJson<ToolsPractices>(res);
   },
 
-  async runPipeline(user_id: string): Promise<RunPipelineResponse> {
+  async runPipeline(): Promise<RunPipelineResponse> {
     const res = await fetch(`${BASE_URL}/ai/run-pipeline`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id }),
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      credentials: "include",
+      body: JSON.stringify({}),
     });
     return toJson<RunPipelineResponse>(res);
   },
 
   async getCourse(id: string): Promise<CourseAggregate> {
-    const res = await fetch(`${BASE_URL}/course/${id}`, { cache: "no-store" });
+    const res = await fetch(`${BASE_URL}/course/${id}`, { cache: "no-store", headers: { ...authHeaders() }, credentials: "include" });
     return toJson<CourseAggregate>(res);
   },
 
   async getModule(id: string): Promise<ModuleDetail> {
-    const res = await fetch(`${BASE_URL}/module/${id}`, { cache: "no-store" });
+    const res = await fetch(`${BASE_URL}/module/${id}`, { cache: "no-store", headers: { ...authHeaders() }, credentials: "include" });
     const raw = await toJson<any>(res);
-    const mod: ModuleDetail = {
-      id: raw.module_id ?? raw.id,
-      title: raw.title,
-      description: raw.description ?? null,
-      objectives: raw.objectives ?? null,
-      orderIndex: raw.orderIndex ?? null,
-      lessons: Array.isArray(raw.lessons) ? raw.lessons : [],
-      quiz: Array.isArray(raw.quiz) ? raw.quiz : [],
-      chatbot_context: raw.chatbot_context ?? null,
-    };
-    return mod;
+    const mapped: ModuleDetail = {
+      id: raw?.id ?? raw?.module_id ?? raw?.moduleId,
+      title: raw?.title,
+      description: typeof raw?.description === "undefined" ? null : raw.description,
+      objectives: typeof raw?.objectives === "undefined" ? null : raw.objectives,
+      orderIndex: typeof raw?.orderIndex === "undefined" ? null : raw.orderIndex,
+      lessons: Array.isArray(raw?.lessons) ? raw.lessons : [],
+      quiz: Array.isArray(raw?.quiz) ? raw.quiz : [],
+      chatbot_context: typeof raw?.chatbot_context === "undefined" ? null : raw.chatbot_context,
+    } as ModuleDetail;
+    return mapped;
   },
 
   async getLesson(id: string): Promise<LessonDetail> {
-    const res = await fetch(`${BASE_URL}/lesson/${id}`, { cache: "no-store" });
+    const res = await fetch(`${BASE_URL}/lesson/${id}`, { cache: "no-store", headers: { ...authHeaders() }, credentials: "include" });
     const raw = await toJson<any>(res);
     const lesson: LessonDetail = {
       id: raw.id,
@@ -113,7 +137,8 @@ export const Api = {
   async chatModule(id: string, message: string): Promise<{ reply: string }> {
     const res = await fetch(`${BASE_URL}/chat/module/${id}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      credentials: "include",
       body: JSON.stringify({ message }),
     });
     return toJson<{ reply: string }>(res);
@@ -122,30 +147,33 @@ export const Api = {
   async generateLessons(module_id: string): Promise<{ lessons: { id: string; title: string; content: string; orderIndex?: number | null }[] }>{
     const res = await fetch(`${BASE_URL}/ai/generate-lessons`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      credentials: "include",
       body: JSON.stringify({ module_id }),
     });
     return toJson(res);
   },
 
-  async generateSummary(user_id: string, course_id: string): Promise<SummaryResponse> {
+  async generateSummary(course_id: string): Promise<SummaryResponse> {
     const res = await fetch(`${BASE_URL}/ai/generate-summary`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id, course_id }),
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      credentials: "include",
+      body: JSON.stringify({ course_id }),
     });
     return toJson<SummaryResponse>(res);
   },
 
   async getUserCourses(user_id: string): Promise<Array<{ id: string; title: string; createdAt: string; modulesCount: number }>> {
-    const res = await fetch(`${BASE_URL}/courses/by-user/${user_id}`, { cache: "no-store" });
+    const res = await fetch(`${BASE_URL}/courses/by-user/${user_id}`, { cache: "no-store", headers: { ...authHeaders() }, credentials: "include" });
     return toJson(res);
   },
 
   async developLesson(lesson_id: string): Promise<LessonDetail> {
     const res = await fetch(`${BASE_URL}/ai/develop-lesson`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      credentials: "include",
       body: JSON.stringify({ lesson_id }),
     });
     return toJson<LessonDetail>(res);
@@ -154,7 +182,8 @@ export const Api = {
   async continueLesson(lesson_id: string): Promise<LessonDetail> {
     const res = await fetch(`${BASE_URL}/ai/continue-lesson`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      credentials: "include",
       body: JSON.stringify({ lesson_id }),
     });
     return toJson<LessonDetail>(res);

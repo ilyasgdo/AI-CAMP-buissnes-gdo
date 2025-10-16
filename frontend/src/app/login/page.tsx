@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { toast } from "sonner";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -35,13 +36,25 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const res = await Api.login(email, password);
-      const userId = res.user_id;
+      const userId = (res as any).user_id as string;
+      const token = (res as any).token as string | undefined;
       localStorage.setItem("user_id", userId);
       // Stocker l'email pour affichage sur le Dashboard
       try { localStorage.setItem("user_email", email); } catch (_) {}
-      document.cookie = `user_id=${userId}; path=/;`;
-      toast.success("Connexion réussie ! Complétez votre profil.");
-      router.push("/profile");
+      // Persister le token côté client pour les appels cross-origin
+      if (token) {
+        try { localStorage.setItem("session_token", token); } catch (_) {}
+      }
+      if (token) {
+        await fetch("/api/session/set", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token }),
+        });
+      }
+      toast.success("Connexion réussie !");
+      const redirect = searchParams.get("redirect");
+      router.push(redirect ?? "/profile");
     } catch (err: any) {
       toast.error(err?.message ?? "Erreur de connexion");
     } finally {

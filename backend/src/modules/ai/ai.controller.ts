@@ -1,18 +1,14 @@
-import { Body, Controller, NotFoundException, Post, Param, BadRequestException } from '@nestjs/common';
+import { Body, Controller, NotFoundException, Post, Param, BadRequestException, UseGuards, Req, ForbiddenException } from '@nestjs/common';
+import { JwtAuthGuard } from '../../common/guards/jwt.guard';
 import { IsDefined, IsString } from 'class-validator';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ensureJsonResponse as ensureJsonFromText } from '../../common/json';
 import { LlmService } from './llm.service';
 import { AiOrchestratorService } from './ai-orchestrator.service';
 
-class ToolsPracticesDto {
-  @IsString()
-  user_id!: string;
-}
+class ToolsPracticesDto {}
 
 class GenerateCourseDto {
-  @IsString()
-  user_id!: string;
   @IsDefined()
   ai_tools!: { name: string; category: string; use_case: string }[];
 }
@@ -31,10 +27,7 @@ class GenerateSummaryDto {
   course_id!: string;
 }
 
-class RunPipelineDto {
-  @IsString()
-  user_id!: string;
-}
+class RunPipelineDto {}
 
 class ChatModuleDto {
   @IsString()
@@ -65,8 +58,9 @@ export class AiController {
   ) {}
 
   @Post('/ai/tools-practices')
-  async toolsPractices(@Body() dto: ToolsPracticesDto) {
-    const user = await this.prisma.user.findUnique({ where: { id: dto.user_id } });
+  @UseGuards(JwtAuthGuard)
+  async toolsPractices(@Body() _dto: ToolsPracticesDto, @Req() req: any) {
+    const user = await this.prisma.user.findUnique({ where: { id: req.user.id } });
     if (!user) throw new NotFoundException('User not found');
 
     const raw = await this.llm.toolsPractices(user);
@@ -75,8 +69,9 @@ export class AiController {
   }
 
   @Post('/ai/generate-course')
-  async generateCourse(@Body() dto: GenerateCourseDto) {
-    const user = await this.prisma.user.findUnique({ where: { id: dto.user_id } });
+  @UseGuards(JwtAuthGuard)
+  async generateCourse(@Body() dto: GenerateCourseDto, @Req() req: any) {
+    const user = await this.prisma.user.findUnique({ where: { id: req.user.id } });
     if (!user) throw new NotFoundException('User not found');
 
     const raw = await this.llm.generateCourse(user, dto.ai_tools);
@@ -99,9 +94,11 @@ export class AiController {
   }
 
   @Post('/ai/generate-module')
-  async generateModule(@Body() dto: GenerateModuleDto) {
+  @UseGuards(JwtAuthGuard)
+  async generateModule(@Body() dto: GenerateModuleDto, @Req() req: any) {
     const course = await this.prisma.course.findUnique({ where: { id: dto.course_id } });
     if (!course) throw new NotFoundException('Course not found');
+    if (course.userId !== req.user.id) throw new ForbiddenException('Access denied');
 
     const raw = await this.llm.generateModule(dto.module);
     const modJson = ensureJsonFromText(raw);
@@ -154,9 +151,11 @@ export class AiController {
   }
 
   @Post('/ai/generate-summary')
-  async generateSummary(@Body() dto: GenerateSummaryDto) {
+  @UseGuards(JwtAuthGuard)
+  async generateSummary(@Body() dto: GenerateSummaryDto, @Req() req: any) {
     const course = await this.prisma.course.findUnique({ where: { id: dto.course_id }, include: { modules: true } });
     if (!course) throw new NotFoundException('Course not found');
+    if (course.userId !== req.user.id) throw new ForbiddenException('Access denied');
 
     const raw = await this.llm.generateSummary({ title: course.title, modules: course.modules });
     const sumJson = ensureJsonFromText(raw);
@@ -167,17 +166,20 @@ export class AiController {
   }
 
   @Post('/ai/run-pipeline')
-  async runPipeline(@Body() dto: RunPipelineDto) {
-    const user = await this.prisma.user.findUnique({ where: { id: dto.user_id } });
+  @UseGuards(JwtAuthGuard)
+  async runPipeline(@Body() _dto: RunPipelineDto, @Req() req: any) {
+    const user = await this.prisma.user.findUnique({ where: { id: req.user.id } });
     if (!user) throw new NotFoundException('User not found');
-    const result = await this.orchestrator.runPipelineForUser(dto.user_id);
+    const result = await this.orchestrator.runPipelineForUser(req.user.id);
     return { course_id: result.courseId };
   }
 
   @Post('/chat/module/:id')
-  async chatModule(@Param('id') id: string, @Body() dto: ChatModuleDto) {
-    const module = await this.prisma.module.findUnique({ where: { id } });
+  @UseGuards(JwtAuthGuard)
+  async chatModule(@Param('id') id: string, @Body() dto: ChatModuleDto, @Req() req: any) {
+    const module = await this.prisma.module.findUnique({ where: { id }, include: { course: true } });
     if (!module) throw new NotFoundException('Module not found');
+    if (module.course?.userId !== req.user.id) throw new ForbiddenException('Access denied');
 
     const context =
       typeof module.chatbotContext === 'string'
@@ -190,9 +192,11 @@ export class AiController {
   }
 
   @Post('/ai/generate-lessons')
-  async generateLessons(@Body() dto: GenerateLessonsDto) {
-    const module = await this.prisma.module.findUnique({ where: { id: dto.module_id }, include: { lessons: true } });
+  @UseGuards(JwtAuthGuard)
+  async generateLessons(@Body() dto: GenerateLessonsDto, @Req() req: any) {
+    const module = await this.prisma.module.findUnique({ where: { id: dto.module_id }, include: { lessons: true, course: true } });
     if (!module) throw new NotFoundException('Module not found');
+    if (module.course?.userId !== req.user.id) throw new ForbiddenException('Access denied');
 
     const raw = await this.llm.generateLessons({
       title: module.title,
@@ -213,12 +217,14 @@ export class AiController {
   }
 
   @Post('/ai/develop-lesson')
-  async developLesson(@Body() dto: DevelopLessonDto) {
+  @UseGuards(JwtAuthGuard)
+  async developLesson(@Body() dto: DevelopLessonDto, @Req() req: any) {
     const lesson = await this.prisma.lesson.findUnique({
       where: { id: dto.lesson_id },
-      include: { module: true },
+      include: { module: { include: { course: true } } },
     });
     if (!lesson) throw new NotFoundException('Lesson not found');
+    if (lesson.module?.course?.userId !== req.user.id) throw new ForbiddenException('Access denied');
 
     const raw = await this.llm.developLesson({
       title: lesson.title,
@@ -246,12 +252,14 @@ export class AiController {
   }
 
   @Post('/ai/continue-lesson')
-  async continueLesson(@Body() dto: ContinueLessonDto) {
+  @UseGuards(JwtAuthGuard)
+  async continueLesson(@Body() dto: ContinueLessonDto, @Req() req: any) {
     const lesson = await this.prisma.lesson.findUnique({
       where: { id: dto.lesson_id },
       include: { module: { include: { course: true } } },
     });
     if (!lesson) throw new NotFoundException('Lesson not found');
+    if (lesson.module?.course?.userId !== req.user.id) throw new ForbiddenException('Access denied');
 
     // Parse existing content JSON if any
     let existing: any = null;

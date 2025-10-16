@@ -1,11 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class CourseService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getAggregate(id: string) {
+  async getAggregate(id: string, userId: string) {
     const course = await this.prisma.course.findUnique({
       where: { id },
       include: {
@@ -14,6 +14,7 @@ export class CourseService {
       },
     });
     if (!course) throw new NotFoundException('Course not found');
+    if (course.userId !== userId) throw new ForbiddenException('Access denied');
 
     return {
       id: course.id,

@@ -5,6 +5,7 @@ import AnimatedSection from "@/components/AnimatedSection";
 
 export default async function ModulePage({ params }: { params: { id: string } }) {
   const module = await Api.getModule(params.id);
+  const moduleId = params.id;
   const objectives = module.objectives ?? [];
   const lessons = module.lessons ?? [];
   const quizzes = (module as any).quiz ?? [];
@@ -28,12 +29,12 @@ export default async function ModulePage({ params }: { params: { id: string } })
       </AnimatedSection>
 
       <AnimatedSection delay={120}>
-        <LessonsClient moduleId={module.id} initialLessons={lessons} />
+        <LessonsClient moduleId={moduleId} initialLessons={lessons} />
       </AnimatedSection>
 
       <AnimatedSection delay={240}>
         <ModuleInteractive
-          moduleId={module.id}
+          moduleId={moduleId}
           quizzes={quizzes}
           chatbotContext={module.chatbot_context ?? null}
         />

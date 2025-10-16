@@ -11,14 +11,17 @@ export function middleware(req: NextRequest) {
     pathname.startsWith("/_next") ||
     pathname.startsWith("/public") ||
     pathname.startsWith("/assets") ||
-    pathname.startsWith("/api/health");
+    pathname.startsWith("/api/health") ||
+    // Laisser passer la gestion de session côté frontend pour pouvoir poser/retirer le cookie
+    pathname.startsWith("/api/session/set") ||
+    pathname.startsWith("/api/session/clear");
 
   if (isPublic) return NextResponse.next();
 
-  const userId = req.cookies.get("user_id")?.value;
+  const sessionToken = req.cookies.get("session_token")?.value;
 
   // Protéger toutes les pages non publiques
-  if (!userId) {
+  if (!sessionToken) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("redirect", pathname);

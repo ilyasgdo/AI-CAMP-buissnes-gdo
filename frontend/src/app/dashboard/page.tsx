@@ -31,16 +31,15 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const fetchTp = async () => {
-      if (!userId) return;
       try {
-        const res = await Api.toolsPractices(userId);
+        const res = await Api.toolsPractices();
         setTp(res);
       } catch (e: any) {
         // silencieux
       }
     };
     fetchTp();
-  }, [userId]);
+  }, []);
 
   useEffect(() => {
     const fetchUserCourses = async () => {
@@ -69,13 +68,9 @@ export default function DashboardPage() {
   }, [courseId]);
 
   const runPipeline = async () => {
-    if (!userId) {
-      toast.error("Veuillez d’abord enregistrer votre profil");
-      return;
-    }
     setLoading(true);
     try {
-      const res = await Api.runPipeline(userId);
+      const res = await Api.runPipeline();
       setCourseId(res.course_id);
       localStorage.setItem("course_id", res.course_id);
       toast.success("Pipeline exécuté !");
